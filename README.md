@@ -6,6 +6,7 @@ To generate a dataset use generate_dataset.m:
   * parentFolderPath should link to the folder "Dataset_848" which is given in the project.
   * num_elementsPerFeature defines the number of chunks a single data sample is split into 
     (all the files seem to be 10sec, so if num_elementsPerFeature=10, the processing is done for 1sec increments).
+    num_elementsPerFeature above 20 doesn't seem to capture meaningful statistics for the current feature vector
 
 To change the feature set use extract_features.m:
   * code a new feature, for clarity please add it to a new section and number it (its sorta in WIP mode right now).
