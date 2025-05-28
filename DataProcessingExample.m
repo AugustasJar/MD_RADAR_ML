@@ -64,8 +64,8 @@ drawnow
 
 %% Spectrogram processing for 2nd FFT to get Doppler
 % This selects the range bins where we want to calculate the spectrogram
-bin_indl = 10
-bin_indu = 30
+bin_indl = 10;
+bin_indu = 30;
 
 MD.PRF=1/Tsweep;
 MD.TimeWindowLength = 200;
@@ -80,12 +80,14 @@ MD.NumSegments=floor((size(Data_range_MTI,2)-MD.TimeWindowLength)/floor(MD.TimeW
     
 Data_spec_MTI2=0;
 Data_spec2=0;
+
 for RBin=bin_indl:1:bin_indu
     Data_MTI_temp = fftshift(spectrogram(Data_range_MTI(RBin,:),MD.TimeWindowLength,MD.OverlapLength,MD.FFTPoints),1);
     Data_spec_MTI2=Data_spec_MTI2+abs(Data_MTI_temp);                                
     Data_temp = fftshift(spectrogram(Data_range(RBin,:),MD.TimeWindowLength,MD.OverlapLength,MD.FFTPoints),1);
     Data_spec2=Data_spec2+abs(Data_temp);
 end
+
 MD.TimeAxis=linspace(0,MD.WholeDuration,size(Data_spec_MTI2,2));
 
 Data_spec_MTI2=flipud(Data_spec_MTI2);
@@ -117,5 +119,5 @@ set(gca, 'FontSize',16)
 title(filename)
 
 N_chunks = 10;
-features_vector = generate_feature_vectors(Data_spec_MTI2, y_dop, 36,N_chunks)
+features_vector = generate_feature_vectors(Data_spec_MTI2, y_dop,N_chunks)
 % visualizeFeaturesOnSpectrogram(Data_spec_MTI2, MD.TimeAxis, y_dop, features, 0, "TITLE")
