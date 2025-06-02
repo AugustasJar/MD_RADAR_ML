@@ -2,8 +2,11 @@ clear; clc;
 
 % --- Configuration ---
 filePattern = '*.dat'; % Define the pattern for files to process (e.g., '*.dat', '*.bin', or your specific radar file extension)
-sigma_truncate = 25; %Amount of singular vectors to take!
+sigma_truncate = 5; %Amount of singular vectors to take!(Make sure the SVD is done on a dB scale spectrogram!)
 writeBatchSize = 10;
+
+% addpath('Attention features/');
+addpath("generate_mat_datasets/");
 
 % parentFolderPath = 'C:\Users\augus\Desktop\DELFT\obj_detection\Dataset_848';
 parentFolderPath = '/home/teque/Documents/SystemsControlYear2/Object classification with RADAR/Dataset for project/Dataset_848';
@@ -50,9 +53,7 @@ for k = 1:numFiles
 
     try
         % --- Load and Compute SVD ---
-        [spectrogram_example, MD] = create_spectrogram(fullFilePath);
-        % disp(size(spectrogram_example));
-        % disp(MD);
+        [spectrogram_example, MD] = createSpectrogram_optimized(fullFilePath);
 
         % Apply it on the dB scale spectrogram
         [U, S, V] = svd(20*log10(abs(spectrogram_example)));
@@ -60,11 +61,6 @@ for k = 1:numFiles
         U = U(:,1:sigma_truncate);
         S = S(1:sigma_truncate,1:sigma_truncate);
         V = V(:,1:sigma_truncate);
-
-        disp(length(U(:,1)) + length(V(:,1)) );
-        if (length(U(:,1)) + length(V(:,1))) ~= 1781
-            count = count + 1;
-        end
 
         % --- Determine Output Path ---
         % Create equivalent output subfolder path

@@ -1,13 +1,18 @@
-function features = extractSpectrogramFeatures(spectrogram_data, doppler_axis, threshold_dB_below_peak)
+function features = extract_features(spectrogram_data, doppler_axis, threshold_dB_below_peak)
 % This function is used to generate a feature structure from a spectrogram
 % (or a part of spectrogram). Feel free to copy this file and generate
 % different feature vectors for testing.
 %
 % INPUTS:
 %   spectrogram_data: 2D matrix [num_doppler_bins, num_time_segments]
-%                     containing the spectrogram (e.g., magnitude or power).
+%                     containing the spectrogram (e.g., magnitude or
+%                     power)
 %                     It's assumed that spectrogram_data(k,t) corresponds
 %                     to doppler_axis(k) at time_axis(t).
+%                     IMPORTANT: Bandwidth requires non dB scale input for
+%                     it to work properly! CONVERT TO linear scale FIRST
+%
+%
 %   doppler_axis:     Vector [num_doppler_bins, 1] or [1, num_doppler_bins]
 %                     containing the Doppler frequency values for the rows
 %                     of spectrogram_data.
@@ -16,7 +21,6 @@ function features = extractSpectrogramFeatures(spectrogram_data, doppler_axis, t
 %
 % OUTPUTS:
 % feature vector: the features arranged in a struct as per desired format.
-
 
     if isempty(spectrogram_data)
         warning('Spectrogram data is empty. Returning empty features.');
@@ -46,7 +50,7 @@ function features = extractSpectrogramFeatures(spectrogram_data, doppler_axis, t
 
     doppler_axis = doppler_axis(:);
 
-    %% 1. Doppler Frequency Moments
+    % 1. Doppler Frequency Moments
     for t = 1:num_time_segments
         current_slice = spectrogram_data(:, t);
         total_intensity = sum(current_slice);
@@ -72,32 +76,35 @@ function features = extractSpectrogramFeatures(spectrogram_data, doppler_axis, t
                 kurtosis_doppler(t) = 0; 
             end
     end
-    %% 2. envelopes
+    
+    % 2. envelopes
     % not currently used as features. finds the frequencies at RCS 16dB
     % lower than peak dB.
-    [torso_env_top,torso_env_bttm] = envelope_at_db(spectrogram_data,doppler_axis,16);
-    %% 3. Pseudo-Zernike Moments to-do
+    % CONVERT TO LINEAR SCALE FIRST
+    [torso_env_top,torso_env_bttm] = envelope_at_db(10.^(spectrogram_data/ 20),doppler_axis,16);
+    % 3. Pseudo-Zernike Moments to-do
    
-    %% 4. torso BW - might need to be adjusted
+    % 4. torso BW - might need to be adjusted
     % the mean power concentrated in frequencies that are below 16dB of
     % peak
     
-        envelope_diff = abs(torso_env_top-torso_env_bttm);
-        torso_BW = mean(envelope_diff,"omitnan");
+    envelope_diff = abs(torso_env_top-torso_env_bttm);
+    torso_BW = mean(envelope_diff,"omitnan");
     
-    %% 5. total BW - might need to be adjusted
+    % 5. total BW - might need to be adjusted
     % the mean power concentrated in frequencies that are below 36dB of
     % peak.
-        [MD_env_top,MD_env_btm] = envelope_at_db(spectrogram_data,doppler_axis,36);
-        total_BW = mean(abs(MD_env_top-MD_env_btm),"omitnan");
+    % CONVERT TO LINEAR SCALE FIRST
+    [MD_env_top,MD_env_btm] = envelope_at_db(10.^(spectrogram_data/ 20),doppler_axis,36);
+    total_BW = mean(abs(MD_env_top-MD_env_btm),"omitnan");
      
-    %% 6. total BW offset
+    % 6. total BW offset
     % how much the BW is offset from mean.
-        total_BW_offset = mean(MD_env_top - MD_env_btm,"omitnan");
+    total_BW_offset = mean(MD_env_top - MD_env_btm,"omitnan");
     %% 7. torso BW offset
-        torso_BW_offset = mean(torso_env_top - torso_env_bttm,"omitnan");
-    %% 8. limb oscillation period - TODO
-    %% Store features in a struct
+    torso_BW_offset = mean(torso_env_top - torso_env_bttm,"omitnan");
+    % 8. limb oscillation period - TODO
+    % Store features in a struct
 %     features.time_vector = time_axis(:)'; % Ensure row vector
 
     % the means are for frequency.

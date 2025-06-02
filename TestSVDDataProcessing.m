@@ -1,16 +1,21 @@
 addpath('generate_mat_datasets');
 
+addpath('Attention features');
+
 [filename,pathname] = uigetfile('*.dat');
 fullpath = fullfile(pathname, filename);
+%%
+[spectrogram_example, MD] = createSpectrogram_optimized(fullpath);
 
-[spectrogram_example, MD] = create_spectrogram(fullpath);
+% [spectrogram_example, MD] = create_spectrogram_wrong(fullpath);
 
 %% Plot the spectrogram
 
 figure(1)
 colormap(jet)
 % imagesc(MD.TimeAxis,MD.DopplerAxis.*3e8/2/5.8e9,20*log10(abs(spectrogram_example))); colormap('jet'); axis xy
-imagesc(MD.TimeAxis,MD.VelocityAxis,spectrogram_example); colormap('jet'); axis xy
+% imagesc(MD.TimeAxis,MD.VelocityAxis,spectrogram_example); colormap('jet'); axis xy
+imagesc(MD.TimeAxis,MD.VelocityAxis, 20*log10(abs(spectrogram_example))); colormap('jet'); axis xy
 ylim([-6 6]); colorbar
 colormap; %xlim([1 9])
 clim = get(gca,'CLim');
@@ -22,8 +27,9 @@ title(filename)
 
 %% Try the SVD of the spectrogram
 
-[U, S, V] = svd(spectrogram_example);
-singular_value_cutoff = 5;
+% Apply on the dB version!
+[U, S, V] = svd(20*log10(abs(spectrogram_example)));
+singular_value_cutoff = 25;
 figure(2);  % Create a new figure
 % Subplot 1
 subplot(2,2,1);  % 2 rows, 2 columns, position 1
@@ -61,13 +67,13 @@ title(filename)
 
 %% Compare denoised reconstruction to original full data SVD
 
-singular_value_cutoff = 15;
+singular_value_cutoff = 5;
 spectrogram_denoised = U(:,1:singular_value_cutoff)*S(1:singular_value_cutoff, 1:singular_value_cutoff)*V(:,1:singular_value_cutoff)';
 
 figure(2)
 subplot(1,2,1);
 colormap(jet)
-imagesc(MD.TimeAxis,MD.VelocityAxis,spectrogram_example); colormap('jet'); axis xy
+imagesc(MD.TimeAxis,MD.VelocityAxis,20*log10(abs(spectrogram_example))); colormap('jet'); axis xy
 ylim([-6 6]); colorbar
 colormap; %xlim([1 9])
 clim = get(gca,'CLim');
@@ -161,3 +167,6 @@ xlabel('Time[s]', 'FontSize',16);
 ylabel('Velocity [m/s]','FontSize',16)
 set(gca, 'FontSize',16)
 title(filename)
+
+%% Check out the envelopes
+
