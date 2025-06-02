@@ -16,6 +16,7 @@ function [spectrogram_res,time_axis,vel_axis] = createSpectrogram(filename)
     record_length=length(Data)/NTS*Tsweep; % length of recording in s
     nc=record_length/Tsweep; % number of chirps
 
+    
     Data_time=reshape(Data, [NTS nc]);
     win = ones(NTS,size(Data_time,2));
     %Part taken from Ancortek code for FFT and IIR filtering

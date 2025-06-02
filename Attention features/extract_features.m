@@ -72,7 +72,6 @@ function features = extractSpectrogramFeatures(spectrogram_data, doppler_axis, t
                 kurtosis_doppler(t) = 0; 
             end
     end
-
     %% 2. envelopes
     % not currently used as features. finds the frequencies at RCS 16dB
     % lower than peak dB.
@@ -82,6 +81,7 @@ function features = extractSpectrogramFeatures(spectrogram_data, doppler_axis, t
     %% 4. torso BW - might need to be adjusted
     % the mean power concentrated in frequencies that are below 16dB of
     % peak
+    
         envelope_diff = abs(torso_env_top-torso_env_bttm);
         torso_BW = mean(envelope_diff,"omitnan");
     
