@@ -74,7 +74,7 @@ MD.OverlapLength = round(MD.TimeWindowLength*MD.OverlapFactor);
 MD.Pad_Factor = 4;
 MD.FFTPoints = MD.Pad_Factor*MD.TimeWindowLength;
 MD.DopplerBin=MD.PRF/(MD.FFTPoints);
-MD.DopplerAxis=-MD.PRF/2:MD.DopplerBin:MD.PRF/2-MD.DopplerBin;
+MD.DopplerAxis=-MD.PRF/2:MD.DopplerBin:MD.PRF/2-MD.DopplerBin
 MD.WholeDuration=size(Data_range_MTI,2)/MD.PRF;
 MD.NumSegments=floor((size(Data_range_MTI,2)-MD.TimeWindowLength)/floor(MD.TimeWindowLength*(1-MD.OverlapFactor)));
     
@@ -82,7 +82,9 @@ Data_spec_MTI2=0;
 Data_spec2=0;
 
 for RBin=bin_indl:1:bin_indu
-    Data_MTI_temp = fftshift(spectrogram(Data_range_MTI(RBin,:),MD.TimeWindowLength,MD.OverlapLength,MD.FFTPoints),1);
+    a = Data_range_MTI(RBin,:);
+    b = spectrogram(a,MD.TimeWindowLength,MD.OverlapLength,MD.FFTPoints);
+    Data_MTI_temp = fftshift(b,1);
     Data_spec_MTI2=Data_spec_MTI2+abs(Data_MTI_temp);                                
     Data_temp = fftshift(spectrogram(Data_range(RBin,:),MD.TimeWindowLength,MD.OverlapLength,MD.FFTPoints),1);
     Data_spec2=Data_spec2+abs(Data_temp);
@@ -119,5 +121,5 @@ set(gca, 'FontSize',16)
 title(filename)
 
 N_chunks = 10;
-features_vector = generate_feature_vectors(Data_spec_MTI2, y_dop,N_chunks)
+features_vector = generate_feature_vectors(Data_spec_MTI2, y_dop,N_chunks);
 % visualizeFeaturesOnSpectrogram(Data_spec_MTI2, MD.TimeAxis, y_dop, features, 0, "TITLE")

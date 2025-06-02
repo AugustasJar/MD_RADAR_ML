@@ -8,8 +8,8 @@ clear; clc;
 
 % --- Configuration ---
 filePattern = '*.dat'; % Define the pattern for files to process (e.g., '*.dat', '*.bin', or your specific radar file extension)
-outputCsvFile = 'radar_features_output_n20.csv';
-numElementsPerFeature = 20;
+outputCsvFile = 'radar_features_output_n40.csv';
+numElementsPerFeature = 40;
 writeBatchSize = 100; % Number of files to process before writing to CSV
 
 parentFolderPath = 'C:\Users\augus\Desktop\DELFT\obj_detection\Dataset_848';
