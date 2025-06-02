@@ -1,0 +1,173 @@
+% processRadarDataToCsv.m
+%
+% This script reads all specified files from an input folder,
+% extracts features using 'extractRadarFeatures.m', and saves
+% the features along with filenames to a CSV file, writing every 50 files.
+
+clear; clc;
+% -- Import functions
+addpath('Attention features');  % Relative path to the subfolder
+addpath('SVD features');  % Relative path to the subfolder
+
+% --- Configuration ---
+filePattern = '*.mat'; % Define the pattern for files to process (e.g., '*.dat', '*.bin', or your specific radar file extension)
+outputCsvFile = 'radar_features_SVD_output_n20.csv';
+numElementsPerFeature = 20;
+writeBatchSize = 100; % Number of files to process before writing to CSV
+subjectLabelStart = 1;
+numSingularVectors = 3;  % Change as needed
+
+% parentFolderPath = 'C:\Users\augus\Desktop\DELFT\obj_detection\Dataset_848';
+% parentFolderPath = '/home/teque/Documents/SystemsControlYear2/Object classification with RADAR/Dataset for project/Dataset_848';
+
+parentFolderPath = '/home/teque/Documents/SystemsControlYear2/Object classification with RADAR/Dataset for project/Dataset_848_SVD';
+fprintf('Searching for subfolders in: %s\n', parentFolderPath);
+allItems = dir(parentFolderPath);
+allDirs = allItems([allItems.isdir]); % Keep only directories
+subFolders = allDirs(~ismember({allDirs.name}, {'.', '..'})); % Exclude '.' and '..'
+numSubFolders = length(subFolders);
+fprintf('Found %d potential subfolder(s) to scan for files.\n', numSubFolders);
+
+allMatchingFiles = [];
+for i=1:numSubFolders
+    currentSubFolderPath = fullfile(parentFolderPath, subFolders(i).name);
+    fprintf('  Scanning folder: %s\n', currentSubFolderPath);
+    filesInSubFolder = dir(fullfile(currentSubFolderPath, filePattern));
+    for j = 1:length(filesInSubFolder)
+        filesInSubFolder(j).folderpath = currentSubFolderPath; % Store full path to the folder
+    end
+    allMatchingFiles = [allMatchingFiles; filesInSubFolder]; %#ok<AGROW>
+end
+
+numFiles = length(allMatchingFiles);
+if numFiles == 0
+    fprintf('No files found matching the pattern "%s" in the specified parent folder and its subfolders.\n', filePattern);
+    return;
+end
+fprintf('Found %d files to process.\n', numFiles);
+
+%% --- Define feature field names in the order they should appear ---
+featureFieldNames = {'mean', 'variance', 'skewness', 'kurtosis', ...
+                     'torso_BW', 'total_BW', 'total_BW_offset', ...
+                     'total_torso_BW_offset'};
+numFeatureTypes = length(featureFieldNames);
+
+% --- Prepare headers for the CSV file ---
+header = {'SampleIndex', 'FileName'};
+for i = 1:numFeatureTypes
+    fieldName = featureFieldNames{i};
+    for j = 1:numElementsPerFeature
+        header{end+1} = sprintf('%s_%d', fieldName, j);
+    end
+end
+
+% Add singular vector features (Upeak, Unegpeak, Vpeak, Vnegpeak)
+addPeakLabels = @(prefix) arrayfun(@(x) sprintf('%s%d', prefix, x), ...
+                                   1:numSingularVectors, 'UniformOutput', false);
+
+header = [header, 'U_centroid', 'U_bandwidth', ...
+        addPeakLabels('mean_U'), addPeakLabels('sigma_U'), ...
+        addPeakLabels('mean_V'), addPeakLabels('sigma_V'), ...
+        addPeakLabels('Upeak'), addPeakLabels('Unegpeak'), ...
+        addPeakLabels('Vpeak'), addPeakLabels('Vnegpeak')];
+
+% --- Initialize a cell array to store data for the current batch ---
+% batchData = cell(writeBatchSize, 2 + numFeatureTypes * numElementsPerFeature);
+
+% With SVD features too
+batchData = cell(writeBatchSize, length(header));
+
+filesInBatch = 0; % Counter for files in the current batch
+firstWriteDone = false; % Flag to track if the header has been written
+
+%% --- Process each file ---
+fprintf('Starting feature extraction...\n');
+for k = 1:numFiles
+    currentFile = allMatchingFiles(k);
+    currentFileName = currentFile.name;
+    currentFileSubfolderPath = currentFile.folderpath;
+    fullFilePath = fullfile(currentFileSubfolderPath, currentFileName);
+
+    fprintf('Processing file %d/%d: %s\n', k, numFiles, currentFileName);
+
+    % Call your feature extraction function
+    % This function should return a structure as described
+
+    % This is using the .dat files directly
+    % [spectrogram,time_axis,vel_axis] = createSpectrogram_optimized(fullFilePath); % Assuming this function exists
+
+    % This is using the .mat files of the SVD reduced data
+    data = load(fullFilePath);
+    SVD_features = extract_SVD_features(data, numSingularVectors);
+    featuresStruct = generate_feature_vectors(data.U*data.S*data.V',data.MD.DopplerAxis,numElementsPerFeature); % Assuming this function exists
+    % disp(size)
+
+    filesInBatch = filesInBatch + 1; % Increment file counter for the batch
+    % batchData = cell(writeBatchSize, length(header));
+
+    % Store sample index and filename
+    batchData{filesInBatch, 1} = k; % Overall Sample Index
+    batchData{filesInBatch, 2} = currentFileName; % FileName
+
+    % Flatten the features structure into the cell array row
+    % currentCellCol = 3;if i == 1
+    %     header = {'Subject_Label', 'File_Name'};
+    %     fprintf(fid, '%s\n', strjoin(header, ','));
+    % end
+
+    % Add the attention features
+    for i = 1:numFeatureTypes
+        fieldName = featureFieldNames{i};
+        if isfield(featuresStruct, fieldName)
+            featureVector = featuresStruct.(fieldName);
+            if ~isrow(featureVector) && iscolumn(featureVector)
+                featureVector = featureVector';
+            end
+            if length(featureVector) == numElementsPerFeature
+                batchData(filesInBatch, currentCellCol : currentCellCol + numElementsPerFeature - 1) = num2cell(featureVector);
+            else
+                warning('Feature "%s" for file "%s" has %d elements, expected %d. Filling with NaNs.', ...
+                        fieldName, currentFileName, length(featureVector), numElementsPerFeature);
+                batchData(filesInBatch, currentCellCol : currentCellCol + numElementsPerFeature - 1) = {NaN}; % Pad with NaN
+            end
+        else
+            warning('Feature field "%s" not found in output for file "%s". Filling with NaNs.', fieldName, currentFileName);
+            batchData(filesInBatch, currentCellCol : currentCellCol + numElementsPerFeature - 1) = {NaN}; % Fill with NaNs if field missing
+        end
+        currentCellCol = currentCellCol + numElementsPerFeature;
+    end
+
+    % Add SVD feature vector behind it
+    batchData(filesInBatch, currentCellCol : end) = num2cell(SVD_features);
+
+    % Check if it's time to write the batch to CSV
+    if filesInBatch == writeBatchSize || k == numFiles
+        fprintf('Writing batch to CSV (Files %d to %d)...\n', k - filesInBatch + 1, k);
+        % Convert current batch data to a table
+        T_batch = cell2table(batchData(1:filesInBatch, :), 'VariableNames', header);
+
+        try
+            if ~firstWriteDone
+                % First write: create the file with headers
+                writetable(T_batch, outputCsvFile);
+                firstWriteDone = true;
+                fprintf('Successfully created %s and wrote initial batch.\n', outputCsvFile);
+            else
+                % Subsequent writes: append to the existing file without headers
+                writetable(T_batch, outputCsvFile, 'WriteMode', 'append', 'WriteVariableNames', false);
+                fprintf('Successfully appended batch to %s.\n', outputCsvFile);
+            end
+        catch ME_write
+            fprintf('ERROR writing CSV file: %s\n', ME_write.message);
+            fprintf('Please check file permissions and path.\n');
+            % Optionally, decide if you want to stop or continue if a write fails
+        end
+
+        % Reset for the next batch(adapts to adjusted headers and general
+        % amounts of features in the header)
+        batchData = cell(writeBatchSize, length(header)); % Re-initialize
+        filesInBatch = 0;
+    end
+end
+
+fprintf('Processing complete.\n');
