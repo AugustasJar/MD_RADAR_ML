@@ -12,12 +12,16 @@ addpath('SVD features');
 
 % --- Configuration ---
 filePattern = '*.mat';
-numElementsPerFeature = 10;
-writeBatchSize = 100;
+numElementsPerFeature = 30;
+num_time_segments = numElementsPerFeature;
+writeBatchSize = 5;
 numSingularVectors = 3;
-outputCsvFile = 'features_n10_SVD.csv';
+
+outputFolder = fullfile(pwd, 'generated_features');
+outputCsvFile = fullfile(outputFolder, 'attention_features_n30_denoised.csv');
 
 parentFolderPath = '/home/teque/Documents/SystemsControlYear2/Object classification with RADAR/Dataset for project/Dataset_848_SVD';
+% parentFolderPath = '/home/teque/Documents/SystemsControlYear2/Object classification with RADAR/Dataset for project/Dataset_848';
 fprintf('Searching for subfolders in: %s\n', parentFolderPath);
 allItems = dir(parentFolderPath);
 allDirs = allItems([allItems.isdir]);
@@ -49,23 +53,16 @@ featureFieldNames = {'mean', 'variance', 'skewness', 'kurtosis', ...
 numFeatureTypes = length(featureFieldNames);
 
 header = {'SampleIndex', 'FileName'};
+addSVDLabels = @(prefix) arrayfun(@(x) sprintf('%s%d', prefix, x), ...
+                                   1:numSingularVectors, 'UniformOutput', false);
+
 for i = 1:numFeatureTypes
     for j = 1:numElementsPerFeature
         header{end+1} = sprintf('%s_%d', featureFieldNames{i}, j);
     end
 end
 
-addPeakLabels = @(prefix) arrayfun(@(x) sprintf('%s%d', prefix, x), ...
-                                   1:numSingularVectors, 'UniformOutput', false);
-
-header = [header, ...
-          {'U_centroid', 'U_bandwidth'}, ...
-          addPeakLabels('mean_U'), addPeakLabels('sigma_U'), ...
-          addPeakLabels('mean_V'), addPeakLabels('sigma_V'), ...
-          addPeakLabels('Upeak'), addPeakLabels('Unegpeak'), ...
-          addPeakLabels('Vpeak'), addPeakLabels('Vnegpeak')];
-
-% --- Initialize batching ---
+%% --- Initialize batching ---
 batchData = cell(writeBatchSize, length(header));
 filesInBatch = 0;
 firstWriteDone = false;
@@ -79,9 +76,14 @@ for k = 1:numFiles
 
     % --- Feature extraction ---
     data = load(fullFilePath);
-    SVD_features = extract_SVD_features(data, numSingularVectors);
+    % SVD_features = extract_SVD_features(data, numSingularVectors);
+    % [spectrogram,time_axis,vel_axis] = createSpectrogram_optimized(fullFilePath); % Assuming this function exists
+
+    % Attention features using SVD denoised spectrogram
     featuresStruct = generate_feature_vectors(data.U * data.S * data.V', ...
-                                              data.MD.DopplerAxis, numElementsPerFeature);
+                                              data.MD.VelocityAxis, numElementsPerFeature);
+    % featuresStruct = generate_feature_vectors(spectrogram, ..
+    %                                           vel_axis, numElementsPerFeature);
 
     % --- Store into batch ---
     filesInBatch = filesInBatch + 1;
@@ -91,7 +93,7 @@ for k = 1:numFiles
     batchData{currentRow, 1} = k;
     batchData{currentRow, 2} = currentFile.name;
 
-    % --- Process the attention features
+    % --- Process the attention featuresnum_time_segments
     for i = 1:numFeatureTypes
         fieldName = featureFieldNames{i};
         if isfield(featuresStruct, fieldName)
@@ -105,11 +107,13 @@ for k = 1:numFiles
         else
             batchData(currentRow, currentCellCol : currentCellCol + numElementsPerFeature - 1) = {NaN};
         end
-        currentCellCol = currentCellCol + numElementsPerFeature;
-    end
 
-    % --- Add SVD features ---
-    batchData(currentRow, currentCellCol : end) = num2cell(SVD_features);
+        % --- Add SVD features ---
+        % batchData(currentRow, currentCellCol : currentCellCol + len(SVD_features)) = num2cell(SVD_features);
+
+        % currentCellCol = currentCellCol + numElementsPerFeature + len(SVD_features);
+         currentCellCol = currentCellCol + numElementsPerFeature;
+    end
 
     % --- Write batch if full or last file ---
     if filesInBatch == writeBatchSize || k == numFiles
