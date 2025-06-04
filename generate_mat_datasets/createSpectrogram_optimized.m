@@ -10,7 +10,7 @@ function [spectrogram_res, MD] = createSpectrogram_optimized(filename)
 %   6. Added comments regarding potential further optimizations (win, range_axis).
 
 % OUTPUT:
-% spectrogram_res = resulting spectrogram in NOT in dB scale!
+% spectrogram_res = resulting spectrogram IN dB SCALE!
 % MD = struct that contains all the STFT parameters and the doppler,
 % velocity and time axes for plotting and for any other analysis you might
 % need
@@ -232,6 +232,6 @@ function [spectrogram_res, MD] = createSpectrogram_optimized(filename)
         MD.VelocityAxis = MD.DopplerAxis .* (3e8 / (2 * fc));
     end
     time_axis = MD.TimeAxis;
-    spectrogram_res = Data_spec_MTI2;
+    spectrogram_res = 20*log10(abs(Data_spec_MTI2));
 
 end

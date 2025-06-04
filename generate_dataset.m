@@ -1,31 +1,26 @@
-% processRadarDataToCsv.m
-%
-% This script reads all specified files from an input folder,
-% extracts features using 'extractRadarFeatures.m', and saves
-% the features along with filenames to a CSV file, writing every N files.
+%% This script takes the .mat files of the SVD and computes the features we want from spectrograms of reduced dimensionality
 
 clear; clc;
-
-% -- Import functions
-addpath('Attention features');
-addpath('SVD features');
+% -- Import feature extraction functions
+addpath('Feature extraction functions');
 
 % --- Configuration ---
 filePattern = '*.mat';
-numElementsPerFeature = 30;
+numElementsPerFeature = 10;
 num_time_segments = numElementsPerFeature;
-writeBatchSize = 5;
-numSingularVectors = 3;
+writeBatchSize = 100;
 
 outputFolder = fullfile(pwd, 'generated_features');
-outputCsvFile = fullfile(outputFolder, 'attention_features_n30_denoised.csv');
+outputCsvFile_train = fullfile(outputFolder, 'features_n10_denoised_train.csv');
+outputCsvFile_val = fullfile(outputFolder, 'features_n10_denoised_val.csv');
 
 parentFolderPath = '/home/teque/Documents/SystemsControlYear2/Object classification with RADAR/Dataset for project/Dataset_848_SVD';
-% parentFolderPath = '/home/teque/Documents/SystemsControlYear2/Object classification with RADAR/Dataset for project/Dataset_848';
+
 fprintf('Searching for subfolders in: %s\n', parentFolderPath);
 allItems = dir(parentFolderPath);
 allDirs = allItems([allItems.isdir]);
 subFolders = allDirs(~ismember({allDirs.name}, {'.', '..'}));
+numSubFolders = length(subFolders);
 fprintf('Found %d subfolder(s).\n', length(subFolders));
 
 % --- Find all matching files
@@ -46,97 +41,56 @@ if numFiles == 0
 end
 fprintf('Found %d files to process.\n', numFiles);
 
-% --- Prepare headers ---
 featureFieldNames = {'mean', 'variance', 'skewness', 'kurtosis', ...
-                     'torso_BW', 'total_BW', 'total_BW_offset', ...
-                     'total_torso_BW_offset'};
-numFeatureTypes = length(featureFieldNames);
+                     'torso_BW', 'limbs_BW', 'torso_BW_max', ...
+                     'limbs_BW_max', 'CVD'};
 
-header = {'SampleIndex', 'FileName'};
-addSVDLabels = @(prefix) arrayfun(@(x) sprintf('%s%d', prefix, x), ...
-                                   1:numSingularVectors, 'UniformOutput', false);
+trainingFiles = [];
+validationFiles = [];
 
-for i = 1:numFeatureTypes
-    for j = 1:numElementsPerFeature
-        header{end+1} = sprintf('%s_%d', featureFieldNames{i}, j);
+% Go through all files and folders to group and split files
+for i = 1:numSubFolders
+    currentSubFolderPath = fullfile(parentFolderPath, subFolders(i).name);
+    % fprintf('Scanning folder: %s\n', currentSubFolderPath);
+    
+    filesInSubFolder = dir(fullfile(currentSubFolderPath, filePattern));
+    
+    % Add full path info
+    for k = 1:length(filesInSubFolder)
+        filesInSubFolder(k).folderpath = currentSubFolderPath;
+    end
+
+    % --- Group by activity type (first digit of filename) ---
+    activityMap = containers.Map();
+
+    for k = 1:length(filesInSubFolder)
+        fname = filesInSubFolder(k).name;
+        if ~isempty(fname)
+            activityType = fname(1);  % First character = activity
+            if ~isKey(activityMap, activityType)
+                activityMap(activityType) = [];
+            end
+            activityMap(activityType) = [activityMap(activityType), k];
+        end
+    end
+
+    % --- For each activity, split and assign files ---
+    activityKeys = keys(activityMap);
+    for a = 1:length(activityKeys)
+        indices = activityMap(activityKeys{a});
+        indices = indices(randperm(length(indices)));  % Shuffle
+        nTrain = round(0.8 * length(indices));
+        trainIdx = indices(1:nTrain);
+        valIdx = indices(nTrain+1:end);
+
+        trainingFiles = [trainingFiles; filesInSubFolder(trainIdx)];
+        validationFiles = [validationFiles; filesInSubFolder(valIdx)];
     end
 end
+fprintf('Finished splitting files \n');
 
-%% --- Initialize batching ---
-batchData = cell(writeBatchSize, length(header));
-filesInBatch = 0;
-firstWriteDone = false;
-
-% --- Process each file ---
-fprintf('Starting feature extraction...\n');
-for k = 1:numFiles
-    currentFile = allMatchingFiles(k);
-    fullFilePath = fullfile(currentFile.folderpath, currentFile.name);
-    fprintf('Processing file %d/%d: %s\n', k, numFiles, currentFile.name);
-
-    % --- Feature extraction ---
-    data = load(fullFilePath);
-    % SVD_features = extract_SVD_features(data, numSingularVectors);
-    % [spectrogram,time_axis,vel_axis] = createSpectrogram_optimized(fullFilePath); % Assuming this function exists
-
-    % Attention features using SVD denoised spectrogram
-    featuresStruct = generate_feature_vectors(data.U * data.S * data.V', ...
-                                              data.MD.VelocityAxis, numElementsPerFeature);
-    % featuresStruct = generate_feature_vectors(spectrogram, ..
-    %                                           vel_axis, numElementsPerFeature);
-
-    % --- Store into batch ---
-    filesInBatch = filesInBatch + 1;
-    currentRow = filesInBatch;
-    currentCellCol = 3;
-
-    batchData{currentRow, 1} = k;
-    batchData{currentRow, 2} = currentFile.name;
-
-    % --- Process the attention featuresnum_time_segments
-    for i = 1:numFeatureTypes
-        fieldName = featureFieldNames{i};
-        if isfield(featuresStruct, fieldName)
-            vector = featuresStruct.(fieldName);
-            if iscolumn(vector), vector = vector'; end
-            if length(vector) == numElementsPerFeature
-                batchData(currentRow, currentCellCol : currentCellCol + numElementsPerFeature - 1) = num2cell(vector);
-            else
-                batchData(currentRow, currentCellCol : currentCellCol + numElementsPerFeature - 1) = {NaN};
-            end
-        else
-            batchData(currentRow, currentCellCol : currentCellCol + numElementsPerFeature - 1) = {NaN};
-        end
-
-        % --- Add SVD features ---
-        % batchData(currentRow, currentCellCol : currentCellCol + len(SVD_features)) = num2cell(SVD_features);
-
-        % currentCellCol = currentCellCol + numElementsPerFeature + len(SVD_features);
-         currentCellCol = currentCellCol + numElementsPerFeature;
-    end
-
-    % --- Write batch if full or last file ---
-    if filesInBatch == writeBatchSize || k == numFiles
-        fprintf('Writing batch: rows %d to %d\n', k - filesInBatch + 1, k);
-        T_batch = cell2table(batchData(1:filesInBatch, :), 'VariableNames', header);
-
-        try
-            if ~firstWriteDone
-                writetable(T_batch, outputCsvFile);
-                firstWriteDone = true;
-                fprintf('Created file: %s\n', outputCsvFile);
-            else
-                writetable(T_batch, outputCsvFile, 'WriteMode', 'append', 'WriteVariableNames', false);
-                fprintf('Appended to file: %s\n', outputCsvFile);
-            end
-        catch ME
-            fprintf('Error writing CSV: %s\n', ME.message);
-        end
-
-        % Reset batch
-        batchData = cell(writeBatchSize, length(header));
-        filesInBatch = 0;
-    end
-end
+% Compute the features for the training and the validation datasets
+process_and_write_files(trainingFiles, outputCsvFile_train, numElementsPerFeature, writeBatchSize, featureFieldNames);
+process_and_write_files(validationFiles, outputCsvFile_val, numElementsPerFeature, writeBatchSize, featureFieldNames);
 
 fprintf('All files processed.\n');

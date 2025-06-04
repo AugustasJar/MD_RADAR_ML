@@ -55,8 +55,9 @@ for k = 1:numFiles
         % --- Load and Compute SVD ---
         [spectrogram_example, MD] = createSpectrogram_optimized(fullFilePath);
 
-        % Apply it on the dB scale spectrogram
-        [U, S, V] = svd(20*log10(abs(spectrogram_example)));
+        % Apply it on the dB scale spectrogram(already given by the command
+        % above)
+        [U, S, V] = svd(spectrogram_example);
 
         U = U(:,1:sigma_truncate);
         S = S(1:sigma_truncate,1:sigma_truncate);
