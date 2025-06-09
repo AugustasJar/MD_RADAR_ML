@@ -15,8 +15,6 @@ CVD = abs(CVD);
 
 % Cadence axis
 N_time = length(MD.TimeAxis);
-% dt = mean(diff(MD.TimeAxis));           % Sampling interval in slow-time
-% PRF = 1 / dt;                         % Pulse Repetition Frequency
 cadence_axis = linspace(-MD.PRF/2, MD.PRF/2, N_time);  % in Hz
 
 % Original (normalized) cadence profile

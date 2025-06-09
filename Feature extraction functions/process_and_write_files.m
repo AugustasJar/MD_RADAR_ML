@@ -1,5 +1,9 @@
-function process_and_write_files(fileList, outputCsvFile, numElementsPerFeature, writeBatchSize, featureFieldNames)
+function process_and_write_files(fileList, outputCsvFile, numElementsPerFeature, writeBatchSize, featureFieldNames, N_aug_rep)
     numFeatureTypes = length(featureFieldNames);
+
+    if ~(isscalar(N_aug_rep) && isnumeric(N_aug_rep) && N_aug_rep == floor(N_aug_rep) && N_aug_rep > 0)
+        error('N_aug_rep must be a positive integer scalar.');
+    end
 
     % --- Prepare headers for the CSV file ---
     header = {'SampleIndex', 'FileName'};
@@ -30,7 +34,6 @@ function process_and_write_files(fileList, outputCsvFile, numElementsPerFeature,
         % CHANGE THIS TO SVD DENOISED VERSION!
         % [spectrogram, time_axis, vel_axis] = createSpectrogram_optimized(fullFilePath);
         data = load(fullFilePath);
-        N_aug_rep = 1;
 
         % DATA AUGMENTATION CALLED HERE on reconstructed SVD spectrogram
         aug = dat_aug(data.U*data.S*data.V', N_aug_rep);
@@ -51,8 +54,8 @@ function process_and_write_files(fileList, outputCsvFile, numElementsPerFeature,
             spec_v = spectrogramVariants{v};
             label_v = variantLabels{v};
 
-            % featuresStruct = generate_feature_vectors(spec_v, data.MD, numElementsPerFeature, fullFilePath);
-            featuresStruct = generate_feature_vectors(spec_v, data.MD, numElementsPerFeature);
+            % featuresStruct = generate_feature_vectors(spec_v, data.MD, numElementsPerFeature);
+            featuresStruct = generate_feature_vectors(data, numElementsPerFeature);
             filesInBatch = filesInBatch + 1;
 
             batchData{filesInBatch, 1} = sprintf('%d_%s', k, label_v);
@@ -74,16 +77,14 @@ function process_and_write_files(fileList, outputCsvFile, numElementsPerFeature,
                 end
                 currentCellCol = currentCellCol + numElementsPerFeature;
             end
-        end
-        % disp(filesInBatch);
-        
-        % Divide filesInBatch by the amount of augmented variants
-        % Small fix so the files are actually saved when writebatchsize is
-        % equal to 100. filesInBatch increases with
-        % length(spectrogramVariants) per file instead of once per file
+        end     
 
-        if filesInBatch/length(spectrogramVariants) == writeBatchSize || k == numFiles
-            fprintf('Writing batch to CSV (Files %d to %d)...\n', k - filesInBatch + 1, k);
+        % Just a "cosmetic" fix so the right indices are displayed in the
+        % command window
+        filesInBatch_fixed = filesInBatch/length(spectrogramVariants);
+
+        if filesInBatch_fixed == writeBatchSize || k == numFiles
+            fprintf('Writing batch to CSV (Files %d to %d)...\n', k - filesInBatch_fixed + 1, k);
             T_batch = cell2table(batchData(1:filesInBatch, :), 'VariableNames', header);
 
             try
