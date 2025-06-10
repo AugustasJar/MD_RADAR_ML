@@ -56,6 +56,16 @@ function process_and_write_files(fileList, outputCsvFile, numElementsPerFeature,
 
             % featuresStruct = generate_feature_vectors(spec_v, data.MD, numElementsPerFeature);
             featuresStruct = generate_feature_vectors(data, numElementsPerFeature);
+            SVD_features = extract_SVD_features(data, 3, numElementsPerFeature);
+
+            % Bit of extra work to add SVD features
+            numSVD = length(SVD_features);
+            startIndex = length(featureFieldNames) - numSVD + 1;
+            for i = 1:numSVD
+                fieldName = featureFieldNames{startIndex + i - 1};
+                featuresStruct.(fieldName) = repmat(SVD_features(i),1,numElementsPerFeature);
+            end
+
             filesInBatch = filesInBatch + 1;
 
             batchData{filesInBatch, 1} = sprintf('%d_%s', k, label_v);

@@ -34,13 +34,13 @@ pipeline.featureFieldNames = [featureFieldNames, newFeatureNames];
 
 % Settings for the amount of time segments and the batch size
 pipeline.numElementsPerFeature = 20;
-pipeline.writeBatchSize = 100;
+pipeline.writeBatchSize = 5;
 pipeline.trainingFiles = [];
 pipeline.validationFiles = [];
 
 % Enable/disable data augmentation
 pipeline.augment = true;
-pipeline.N_aug_rep = 2; % Amount of augmented versions per each augmentation type
+pipeline.N_aug_rep = 1; % Amount of augmented versions per each augmentation type
 
 % Name your output file
 pipeline.outputCsvFile_train = fullfile(pipeline.outputFolder, 'n20_denoised_train_no_aug.csv');
