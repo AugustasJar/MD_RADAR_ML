@@ -12,12 +12,14 @@
 % specific data file
 %==========================================================================
 
-
 %% Data reading part
 clear all;
 close all;
 
 [filename,pathname] = uigetfile('*.dat');
+% parentFolderPath = '/home/teque/Documents/SystemsControlYear2/Object classification with RADAR/Dataset for project/Dataset_848'
+% 
+% [filename,pathname] = uigetfile('parentFolderPath/1P36A01R01.dat');
 fileID = fopen(filename, 'r');
 dataArray = textscan(fileID, '%f');
 fclose(fileID);
@@ -93,8 +95,6 @@ end
 MD.TimeAxis=linspace(0,MD.WholeDuration,size(Data_spec_MTI2,2));
 
 Data_spec_MTI2=flipud(Data_spec_MTI2);
-
-
 
 y_dop = MD.DopplerAxis.*3e8/2/5.8e9;
 val_dop = 20*log10(abs(Data_spec_MTI2));

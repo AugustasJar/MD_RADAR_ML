@@ -24,11 +24,13 @@ function features = generate_feature_vectors(spectrogram_data,doppler_axis,N)
     
     features.total_BW_offset = [];
     features.total_torso_BW_offset = [];
+   disp("Calling extract_features...");
     for i=1:N
        chunk_start = (i-1)*chunk_size+1;
        chunk_end = i*chunk_size;
        
        chunk = spectrogram_padded(:,chunk_start:chunk_end);
+
        features_i = extract_features(chunk, doppler_axis, 36);
        
        features.mean = [features.mean features_i.mean];

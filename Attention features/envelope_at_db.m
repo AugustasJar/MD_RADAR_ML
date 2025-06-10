@@ -1,7 +1,7 @@
 %function to generate an envelope above some dB value from the maximum.
 % it is used as a helper function to find features.
 function [top,bottom] = envelope_at_db(spectrogram_data,axis,threshold)
-    %% 2. Top and Bottom Envelopes
+    % 2. Top and Bottom Envelopes
         [num_doppler_bins, num_time_segments] = size(spectrogram_data);
         top = zeros(1, num_time_segments);
         bottom = zeros(1, num_time_segments);

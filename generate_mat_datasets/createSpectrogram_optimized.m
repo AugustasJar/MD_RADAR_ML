@@ -1,4 +1,4 @@
-function [spectrogram_res, time_axis, vel_axis] = createSpectrogram_optimized(filename)
+function [spectrogram_res, MD] = createSpectrogram_optimized(filename)
 %createSpectrogram_optimized - Optimized version for speed by Gemini 2.5
 %Pro
 %   Detailed explanation of changes:
@@ -8,6 +8,12 @@ function [spectrogram_res, time_axis, vel_axis] = createSpectrogram_optimized(fi
 %   4. Removed calculation of Data_spec2 and Data_temp as they were not used.
 %   5. Used fc variable in vel_axis calculation for robustness.
 %   6. Added comments regarding potential further optimizations (win, range_axis).
+
+% OUTPUT:
+% spectrogram_res = resulting spectrogram IN dB SCALE!
+% MD = struct that contains all the STFT parameters and the doppler,
+% velocity and time axes for plotting and for any other analysis you might
+% need
 
     fileID = fopen(filename, 'r');
     if fileID == -1
@@ -125,10 +131,23 @@ function [spectrogram_res, time_axis, vel_axis] = createSpectrogram_optimized(fi
         return;
     end
 
+    % === Auto-select range bin region with highest energy ===
+    energy_per_bin = mean(abs(Data_range_MTI).^2, 2);  % Mean energy per bin
+    half_width = 12;  % Select ±N bins around max_bin → total 2N + 1 bins
 
-    % Spectrogram Parameters
-    bin_indl = 10; % Lower bin index for range integration
-    bin_indu = 30; % Upper bin index for range integration
+    % Normal mean
+    % [~, max_bin] = max(energy_per_bin);                % Bin with highest energy
+    
+    %Weighted Average
+    range_bins = (1:length(energy_per_bin))';
+    max_bin = round(sum(range_bins .* energy_per_bin) / sum(energy_per_bin));
+
+
+% Clamp to matrix size
+    min_allowed_bin = 2;  %To prevent cross talk noise
+    bin_indl = max(min_allowed_bin, max_bin - half_width);  % Lower bin index for range integration
+    bin_indu = min(size(Data_range_MTI,1), max_bin + half_width);   % Upper bin index for range integration
+
     
     % Ensure bin_indu does not exceed the number of rows in Data_range_MTI
     if bin_indu > size(Data_range_MTI,1)
@@ -138,6 +157,20 @@ function [spectrogram_res, time_axis, vel_axis] = createSpectrogram_optimized(fi
         warning('Range bin indices (bin_indl=%d, bin_indu=%d) are invalid after adjustments for file: %s. Skipping spectrogram.',bin_indl, bin_indu, filename);
         spectrogram_res = []; time_axis = []; vel_axis = []; return;
     end
+
+
+    % % Spectrogram Parameters
+    % bin_indl = 10; % Lower bin index for range integration
+    % bin_indu = 30; % Upper bin index for range integration
+    % 
+    % % Ensure bin_indu does not exceed the number of rows in Data_range_MTI
+    % if bin_indu > size(Data_range_MTI,1)
+    %     bin_indu = size(Data_range_MTI,1);
+    % end
+    % if bin_indl > bin_indu % if lower bound is now greater (e.g. after adjustment or few rows)
+    %     warning('Range bin indices (bin_indl=%d, bin_indu=%d) are invalid after adjustments for file: %s. Skipping spectrogram.',bin_indl, bin_indu, filename);
+    %     spectrogram_res = []; time_axis = []; vel_axis = []; return;
+    % end
 
 
     MD.PRF = 1 / Tsweep;
@@ -194,11 +227,11 @@ function [spectrogram_res, time_axis, vel_axis] = createSpectrogram_optimized(fi
     % Use fc (center frequency from input) for vel_axis calculation
     if fc == 0 % Avoid division by zero if fc is not set or is zero
         warning('Center frequency fc is 0. Velocity axis cannot be computed correctly.');
-        vel_axis = MD.DopplerAxis .* NaN; % Or handle error appropriately
+        MD.VelocityAxis = MD.DopplerAxis .* NaN; % Or handle error appropriately
     else
-        vel_axis = MD.DopplerAxis .* (3e8 / (2 * fc));
+        MD.VelocityAxis = MD.DopplerAxis .* (3e8 / (2 * fc));
     end
     time_axis = MD.TimeAxis;
-    spectrogram_res = Data_spec_MTI2;
+    spectrogram_res = 20*log10(abs(Data_spec_MTI2));
 
 end
