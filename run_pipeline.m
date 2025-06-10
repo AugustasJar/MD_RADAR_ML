@@ -39,7 +39,7 @@ pipeline.trainingFiles = [];
 pipeline.validationFiles = [];
 
 % Enable/disable data augmentation
-pipeline.augment = false;
+pipeline.augment = true;
 pipeline.N_aug_rep = 2; % Amount of augmented versions per each augmentation type
 
 % Name your output file

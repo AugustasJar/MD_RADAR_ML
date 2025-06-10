@@ -40,7 +40,7 @@ function process_and_write_files(fileList, outputCsvFile, numElementsPerFeature,
 
         spectrogramVariants = {aug.orig};
         variantLabels = {'orig'};
-        warpTypes = {'timeWarp', 'freqWarp', 'blur', 'noise'};
+        warpTypes = {'timeShift', 'freqDisturb'};
 
         for t = 1:length(warpTypes)
             type = warpTypes{t};
